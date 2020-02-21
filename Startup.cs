@@ -8,22 +8,65 @@ using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using bugtracker.Services;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace bugtracker
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration config)
         {
-            Configuration = configuration;
+            configuration = config;
         }
 
-        public IConfiguration Configuration { get; }
+        public IConfiguration configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllersWithViews();
+            // services.AddControllersWithViews();
+
+            services.AddMvc();
+
+            services.AddCors();
+            services.AddControllers();
+
+            // configure strongly typed settings objects
+            // var appSettingsSection = Configuration.GetSection("AppSettings");
+            // services.Configure<AppSettings>(appSettingsSection);
+
+            // configure jwt authentication
+            // var appSettings = appSettingsSection.Get<AppSettings>();
+            // var key = Encoding.ASCII.GetBytes(appSettings.Secret);
+
+            var key = Encoding.ASCII.GetBytes(configuration.GetSection("Secret").Value);
+
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.RequireHttpsMetadata = false;
+                options.SaveToken = true;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = false,
+                    ValidateAudience = false
+                };
+            });
+            
+
+            // configure DI for application services
+            services.AddScoped<IAuthService, AuthService>();
+
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -50,8 +93,10 @@ namespace bugtracker
             {
                 endpoints.MapControllerRoute(
                     name: "default",
-                    pattern: "{controller=Home}/{action=Index}/{id?}");
+                    pattern: "{controller=Login}/{action=Index}/{id?}");
             });
+
+            
         }
     }
 }

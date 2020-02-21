@@ -4,7 +4,8 @@
 
 <div class="text-center">
     <h1 class="display-4">Welcome</h1>
-    <form action="Login/Authenticate" method="post">
+    @* <form action="Login/Authenticate" method="post"> *@
+    <form asp-controller="Login" asp-action="Authenticate" method="post">
         <div class="col-md-offset-2 col-md-10">
                 <input class="form-control" type="email" id="email" name="Email" />
                 <span class="text-danger field-validation-valid" data-valmsg-for="Email" data-valmsg-replace="true"></span>

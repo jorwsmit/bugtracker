@@ -4,19 +4,23 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
+using System.Data;
 using bugtracker.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using MySql.Data;
+using MySql.Data.MySqlClient;
+using System.Diagnostics;
 
 namespace bugtracker.Services
 {
 
-    public interface IUserService
+    public interface IAuthService
     {
-        UserModel Authenticate(string username, string password);
+        UserModel Authenticate(string email, string password);
     }
 
-    public class AuthService : IUserService
+    public class AuthService : IAuthService
     {
         // users hardcoded for simplicity, store in a db with hashed passwords in production applications
         private List<UserModel> _users = new List<UserModel>
@@ -24,9 +28,11 @@ namespace bugtracker.Services
             new UserModel { email = "test", password = "test" }
         };
 
-        private IConfiguration configuration;
-        public AuthService(IConfiguration config){
-            configuration = config;
+        private readonly IConfiguration _configuration;
+        public AuthService(IConfiguration configuration)
+        {
+            Debug.WriteLine("\n\n\n-------AuthService Contructor--------");
+            _configuration = configuration;
         }
 
 
@@ -39,12 +45,41 @@ namespace bugtracker.Services
         //     _appSettings = appSettings.Value;
         // }
 
-        public UserModel Authenticate(string username, string password)
+        public UserModel Authenticate(string email, string password)
         {
 
+            Debug.WriteLine("\n\n\n-------Calling Authenticate--------");
             //iterates through users list and returns
             //one where it matches email and password
-            var user = _users.SingleOrDefault(x => x.email == username && x.password == password);
+            var user = _users.SingleOrDefault(x => x.email == email && x.password == password);
+
+            try
+            {
+                string connStr = _configuration["ConnectionString"];
+            MySqlConnection conn = new MySqlConnection(connStr);
+                Debug.WriteLine("\n\n\n-------Connecting to DB--------");
+                conn.Open();
+
+                string sql = "select email, first_name, last_name, photo_url from bugtracker.users where email='"+email+"';";
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                MySqlDataReader dr = cmd.ExecuteReader();
+                DataTable dt = new DataTable();
+                dt.Load(dr);
+                int numberOfResults = dt.Rows.Count;
+
+                Debug.WriteLine("\n\n------Number of Rows------");
+                Debug.WriteLine(numberOfResults);
+                conn.Close();
+            Debug.WriteLine("Done.");
+
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.ToString());
+            }
+            
+
+
 
             // return null if user not found
             if (user == null)
@@ -54,7 +89,7 @@ namespace bugtracker.Services
             var tokenHandler = new JwtSecurityTokenHandler();
             // var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
 
-            var key = Encoding.ASCII.GetBytes(configuration.GetSection("Secret").Value);
+            var key = Encoding.ASCII.GetBytes(_configuration.GetSection("Secret").Value);
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
